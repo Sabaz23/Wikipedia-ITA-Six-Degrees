@@ -1,9 +1,10 @@
 
 import requests
+import re
 from threading import Thread
+import threading
 from LogHelper import LogHelper
 from anytree import Node
-from bs4 import BeautifulSoup
 
 URL_PREFIX = "https://it.wikipedia.org"
 
@@ -19,8 +20,8 @@ INVALID_URLS = ['/wiki/Categoria',
                 '/wiki/Pagina_principale']
 
 #Test
-sourceUrl = "/wiki/Byakhee"
-destUrl =  "/wiki/Veglia_(neurologia)"
+sourceUrl = "/wiki/Regia_Marina"
+destUrl =  "/wiki/Maarn"
 
 linksToNode = {} #Map from link (str) to Node (tree)
 
@@ -38,9 +39,16 @@ def getValidLinks(url :str) -> list:
         except:
             pass
     # parsing all the links of the page     
-    soup = BeautifulSoup(reqs.text, 'html.parser')
-    for link in soup.find_all('a'):
-        linkText :str= link.get("href")
+    pattern = "href=\"/wiki/[^\"]*\""
+    matches = re.findall(pattern,reqs.text)
+    print(reqs.status_code)
+    logFile = open("lastResponse.log", "w", encoding="utf-8")
+    logFile.write(str(reqs.text))
+    logFile.close()
+    
+    for linkText in matches:
+        linkText = linkText.replace("href=\"", "")
+        linkText = linkText.replace("\"", "")
         # A link might not have an href
         if linkText is None:
             continue 
@@ -73,6 +81,8 @@ def exploreWikipedia(originUrl :str, destinUrl :str) -> Node:
     treeRoot = addNodeToTree(originUrl)
     nextNodes = [treeRoot]
     while True:
+        if foundDestNode:
+            break
         currentNodes = nextNodes.copy()
         nextNodes = []
         logHelper = LogHelper(iterationStep, currentNodes, linksToNode, loadedPages)
@@ -92,6 +102,7 @@ def exploreAvailableNodes(logHelper :LogHelper, destinUrl :str, currentNodes :li
     while True:
         # If another thread found the node, interrupt this thread
         if foundDestNode:
+            #print("DestNode Trovato! Termino esecuzione thread - " + threading.current_thread().name)
             return
         # Another thread might have emptied the list, if that is the case, interrupt this thread
         try:
