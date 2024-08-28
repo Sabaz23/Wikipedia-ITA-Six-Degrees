@@ -1,6 +1,7 @@
 
 import requests
 import re
+import time
 from threading import Thread
 import threading
 from LogHelper import LogHelper
@@ -20,28 +21,37 @@ INVALID_URLS = ['/wiki/Categoria',
                 '/wiki/Pagina_principale']
 
 #Test
-sourceUrl = "/wiki/Regia_Marina"
-destUrl =  "/wiki/Maarn"
+sourceUrl = "/wiki/Elvis_Afrifa"
+destUrl =  "/wiki/Laura_Kelly"
 
 linksToNode = {} #Map from link (str) to Node (tree)
 
 foundDestNode = None
 
+startTime = time.time()
 
 def getValidLinks(url :str) -> list:
+    failedAttempts = 0
     validLinks = []
     requestSuccessed = False
     # catching handing error because of network
     while not requestSuccessed:
         try:
             reqs = requests.get(URL_PREFIX + url)
+            if(reqs.status_code != 200):
+                raise ConnectionError("Too Many Requests.")
             requestSuccessed = True
+        except ConnectionError:
+            print("Too many requests... Waiting 10 secs before retrying.")
+            failedAttempts += 1
+            time.sleep(10)
+            pass
         except:
             pass
     # parsing all the links of the page     
     pattern = "href=\"/wiki/[^\"]*\""
     matches = re.findall(pattern,reqs.text)
-    print(reqs.status_code)
+    #print(reqs.status_code)
     logFile = open("lastResponse.log", "w", encoding="utf-8")
     logFile.write(str(reqs.text))
     logFile.close()
@@ -81,6 +91,7 @@ def exploreWikipedia(originUrl :str, destinUrl :str) -> Node:
     treeRoot = addNodeToTree(originUrl)
     nextNodes = [treeRoot]
     while True:
+        
         if foundDestNode:
             break
         currentNodes = nextNodes.copy()
@@ -100,6 +111,7 @@ def exploreWikipedia(originUrl :str, destinUrl :str) -> Node:
 def exploreAvailableNodes(logHelper :LogHelper, destinUrl :str, currentNodes :list, nextNodes :list):
     global foundDestNode
     while True:
+        
         # If another thread found the node, interrupt this thread
         if foundDestNode:
             #print("DestNode Trovato! Termino esecuzione thread - " + threading.current_thread().name)
@@ -137,3 +149,6 @@ def recostructPathToDest(destNode :Node) -> list:
 
 exploreWikipedia(sourceUrl, destUrl)
 print(recostructPathToDest(foundDestNode))
+
+endTime = time.time()
+print("Total time to find shortest path: " + str(endTime-startTime))
